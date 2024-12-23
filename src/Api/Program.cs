@@ -1,5 +1,8 @@
 ﻿using System.Configuration;
 using System.Security.Authentication;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Orleans.Serialization;
 using Realworlddotnet.Api.Features.Articles;
 using Realworlddotnet.Api.Features.Profiles;
 using Realworlddotnet.Api.Features.Tags;
@@ -8,6 +11,23 @@ using Realworlddotnet.Core.Repositories;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Host.UseOrleans(static siloBuilder =>
+{
+    siloBuilder.UseLocalhostClustering();
+    siloBuilder.AddMemoryGrainStorage("realworld");
+    siloBuilder.Services.AddSerializer(serializerBuilder =>
+    {
+        serializerBuilder.AddJsonSerializer(
+            isSupported: type => type.Namespace.StartsWith("Realworlddotnet"), 
+            jsonSerializerOptions: new JsonSerializerOptions()
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                PropertyNameCaseInsensitive = true,
+                ReferenceHandler = ReferenceHandler.IgnoreCycles,
+            });
+    });
+});
 
 // add logging
 builder.Host.UseSerilog((hostBuilderContext, services, loggerConfiguration) =>

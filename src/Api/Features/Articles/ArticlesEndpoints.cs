@@ -1,4 +1,5 @@
-﻿using Realworlddotnet.Core.Dto;
+﻿using Realworlddotnet.Api.Grains;
+using Realworlddotnet.Core.Dto;
 using Realworlddotnet.Infrastructure.Extensions.OpenApi;
 
 namespace Realworlddotnet.Api.Features.Articles;
@@ -40,32 +41,41 @@ public static class ArticlesEndpoints
 
     private static async Task<Ok<ArticleEnvelope<ArticleResponse>>> GetArticleBySlug(
         string slug,
-        ArticlesHandler articlesHandler,
+        // ArticlesHandler articlesHandler,
         ClaimsPrincipal claimsPrincipal,
+        IGrainFactory grainFactory,
         CancellationToken cancellationToken)
     {
         var user = claimsPrincipal.GetUsername();
-        var article = await articlesHandler.GetArticleBySlugAsync(slug, user, cancellationToken);
-        var result = article.MapToArticleResponse();
-        return TypedResults.Ok(new ArticleEnvelope<ArticleResponse>(result));
+
+        var articleResponse = await grainFactory.GetGrain<IArticleGrain>(slug)
+            .GetArticle(user);
+  
+        // var article = await articlesHandler.GetArticleBySlugAsync(slug, user, cancellationToken);
+        // var result = article.MapToArticleResponse();
+        return TypedResults.Ok(new ArticleEnvelope<ArticleResponse>(articleResponse));
     }
 
     private static async Task<Ok> DeleteComment(
         string slug,
         int commentId,
-        ArticlesHandler articlesHandler,
+        // ArticlesHandler articlesHandler,
         ClaimsPrincipal claimsPrincipal,
+        IGrainFactory grainFactory,
         CancellationToken cancellationToken)
     {
         var user = claimsPrincipal.GetUsername();
-        await articlesHandler.RemoveCommentAsync(slug, commentId, user, cancellationToken);
+        await grainFactory.GetGrain<IArticleGrain>(slug)
+            .RemoveCommentAsync(commentId, user);
+        // await articlesHandler.RemoveCommentAsync(slug, commentId, user, cancellationToken);
         return TypedResults.Ok();
     }
 
     private static async Task<Results<Ok<CommentEnvelope<Comment>>, ValidationProblem>> CreateComment(
         string slug,
         CommentEnvelope<CommentDto> request,
-        ArticlesHandler articlesHandler,
+        // ArticlesHandler articlesHandler,
+        IGrainFactory grainFactory,
         ClaimsPrincipal claimsPrincipal, CancellationToken cancellationToken)
     {
         if (!MiniValidator.TryValidate(request, out var errors))
@@ -74,8 +84,10 @@ public static class ArticlesEndpoints
         }
 
         var user = claimsPrincipal.GetUsername();
-        var result = await articlesHandler.AddCommentAsync(slug, user, request.Comment, cancellationToken);
-        var comment = CommentMapper.MapFromCommentEntity(result);
+        var comment = await grainFactory.GetGrain<IArticleGrain>(slug)
+            .AddCommentAsync(user, request.Comment);
+        // var result = await articlesHandler.AddCommentAsync(slug, user, request.Comment, cancellationToken);
+        // var comment = result.MapToCommentModel();
         return TypedResults.Ok(new CommentEnvelope<Comment>(comment));
     }
 
@@ -118,20 +130,24 @@ public static class ArticlesEndpoints
 
     private static async Task<Ok> DeleteArticle(
         string slug,
-        ArticlesHandler articlesHandler,
+        // ArticlesHandler articlesHandler,
+        IGrainFactory grainFactory,
         ClaimsPrincipal claimsPrincipal,
         CancellationToken cancellationToken)
     {
         var user = claimsPrincipal.GetUsername();
-        await articlesHandler.DeleteArticleAsync(slug, user, cancellationToken);
+        // await articlesHandler.DeleteArticleAsync(slug, user, cancellationToken);
+        await grainFactory.GetGrain<IArticleGrain>(slug)
+            .DeleteArticleAsync(user);
         return TypedResults.Ok();
     }
 
     private static async Task<Results<Ok<ArticleEnvelope<ArticleResponse>>, ValidationProblem>> UpdateArticle(
         string slug,
         ArticleEnvelope<ArticleUpdateDto> request,
-        ArticlesHandler articlesHandler,
+        // ArticlesHandler articlesHandler,
         ClaimsPrincipal claimsPrincipal,
+        IGrainFactory grainFactory,
         CancellationToken cancellationToken)
     {
         if (!MiniValidator.TryValidate(request, out var errors))
@@ -140,15 +156,18 @@ public static class ArticlesEndpoints
         }
 
         var user = claimsPrincipal.GetUsername();
-        var article = await articlesHandler.UpdateArticleAsync(request.Article, slug, user, cancellationToken);
+        var article = await grainFactory.GetGrain<IArticleGrain>(slug)
+            .UpdateArticleAsync(request.Article, user);
+        // var article = await articlesHandler.UpdateArticleAsync(request.Article, slug, user, cancellationToken);
         var result = article.MapToArticleResponse();
         return TypedResults.Ok(new ArticleEnvelope<ArticleResponse>(result));
     }
 
     private static async Task<Results<Ok<ArticleEnvelope<ArticleResponse>>, ValidationProblem>> CreateArticle(
         ArticleEnvelope<NewArticleDto> request,
-        ArticlesHandler articlesHandler,
+        // ArticlesHandler articlesHandler,
         ClaimsPrincipal claimsPrincipal,
+        IGrainFactory grainFactory,
         CancellationToken cancellationToken)
     {
         if (!MiniValidator.TryValidate(request, out var errors))
@@ -157,20 +176,26 @@ public static class ArticlesEndpoints
         }
 
         var user = claimsPrincipal.GetUsername();
-        var article = await articlesHandler.CreateArticleAsync(request.Article, user, cancellationToken);
-        var result = article.MapToArticleResponse();
-        return TypedResults.Ok(new ArticleEnvelope<ArticleResponse>(result));
+        var tempArticle = new Article(request.Article.Title, request.Article.Description, request.Article.Body);
+        var articleResponse = await grainFactory.GetGrain<IArticleGrain>(tempArticle.Slug)
+            .CreateArticleAsync(request.Article, user);
+        // var article = await articlesHandler.CreateArticleAsync(request.Article, user, cancellationToken);
+        // var result = article.MapToArticleResponse();
+        return TypedResults.Ok(new ArticleEnvelope<ArticleResponse>(articleResponse));
     }
 
     private static async Task<Ok<CommentsEnvelope<List<Comment>>>> GetComments(
         string slug,
-        ArticlesHandler articlesHandler,
+        // ArticlesHandler articlesHandler,
+        IGrainFactory grainFactory,
         ClaimsPrincipal claimsPrincipal,
         CancellationToken cancellationToken)
     {
         var user = claimsPrincipal.GetUsername();
-        var result = await articlesHandler.GetCommentsAsync(slug, user, cancellationToken);
-        var comments = result.Select(CommentMapper.MapFromCommentEntity);
+        // var result = await articlesHandler.GetCommentsAsync(slug, user, cancellationToken);
+        // var comments = result.Select(CommentMapper.MapToCommentModel);
+        var comments = await grainFactory.GetGrain<IArticleGrain>(slug)
+            .GetCommentsAsync(user);
         return TypedResults.Ok(new CommentsEnvelope<List<Comment>>(comments.ToList()));
     }
 }

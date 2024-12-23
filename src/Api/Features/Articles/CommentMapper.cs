@@ -5,7 +5,7 @@ namespace Realworlddotnet.Api.Features.Articles;
 
 public static class CommentMapper
 {
-    public static CommentModel MapFromCommentEntity(CommentEntity commentEntity)
+    public static CommentModel MapToCommentModel(this CommentEntity commentEntity)
     {
         var author = new Author(
             commentEntity.Author.Username,
